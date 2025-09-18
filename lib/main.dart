@@ -16,20 +16,28 @@ class ShapesDemoApp extends StatelessWidget {
         primarySwatch: Colors.blue,
         useMaterial3: true,
       ),
-      home: const ShapesDemoScreen(),
+      home: const EmojiDrawingBoard(),
     );
   }
 }
 
-class ShapesDemoScreen extends StatefulWidget {
-  const ShapesDemoScreen({super.key});
+class EmojiDrawingBoard extends StatefulWidget {
+  const EmojiDrawingBoard({super.key});
 
   @override
-  State<ShapesDemoScreen> createState() => _ShapesDemoScreenState();
+  State<EmojiDrawingBoard> createState() => _EmojiDrawingBoardState();
 }
 
-class _ShapesDemoScreenState extends State<ShapesDemoScreen> {
+class DrawnEmoji {
+  final String type;
+  final Offset position;
+
+  DrawnEmoji({required this.type, required this.position});
+}
+
+class _EmojiDrawingBoardState extends State<EmojiDrawingBoard> {
   String selectedEmoji = 'Smiley Face';
+  List<DrawnEmoji> drawnEmojis = [];
 
   final List<String> emojiOptions = [
     'Smiley Face',
@@ -38,43 +46,19 @@ class _ShapesDemoScreenState extends State<ShapesDemoScreen> {
     'Eye',
   ];
 
-  Widget _buildEmojiWidget(String emoji) {
-    switch (emoji) {
-      case 'Smiley Face':
-        return SizedBox(
-          height: 200,
-          child: CustomPaint(
-            painter: BasicShapesPainter(),
-            size: const Size(double.infinity, 200),
-          ),
-        );
-      case 'Heart':
-        return SizedBox(
-          height: 300,
-          child: CustomPaint(
-            painter: CombinedShapesPainter(),
-            size: const Size(double.infinity, 300),
-          ),
-        );
-      case 'Party Face':
-        return SizedBox(
-          height: 300,
-          child: CustomPaint(
-            painter: PartyFaceShapesPainter(),
-            size: const Size(double.infinity, 300),
-          ),
-        );
-      case 'Eye':
-        return SizedBox(
-          height: 300,
-          child: CustomPaint(
-            painter: EyeShapesPainter(),
-            size: const Size(double.infinity, 300),
-          ),
-        );
-      default:
-        return const SizedBox(height: 200);
-    }
+  void _onCanvasTap(TapUpDetails details) {
+    setState(() {
+      drawnEmojis.add(DrawnEmoji(
+        type: selectedEmoji,
+        position: details.localPosition,
+      ));
+    });
+  }
+
+  void _clearCanvas() {
+    setState(() {
+      drawnEmojis.clear();
+    });
   }
 
   @override
@@ -82,239 +66,270 @@ class _ShapesDemoScreenState extends State<ShapesDemoScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Emoji App'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.clear),
+            onPressed: _clearCanvas,
+            tooltip: 'Clear Canvas',
+          ),
+        ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Select an Emoji:',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+      body: Column(
+        children: [
+          // control panel
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              border: Border(
+                bottom: BorderSide(color: Colors.grey.shade300),
+              ),
             ),
-            const SizedBox(height: 10),
-            Container(
+            child: Row(
+              children: [
+                const Text(
+                  'Select Emoji: ',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey),
+                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.white,
+                    ),
+                    child: DropdownButton<String>(
+                      value: selectedEmoji,
+                      isExpanded: true,
+                      underline: Container(),
+                      items: emojiOptions.map((String emoji) {
+                        return DropdownMenuItem<String>(
+                          value: emoji,
+                          child: Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Text(emoji),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (String? newValue) {
+                        setState(() {
+                          selectedEmoji = newValue!;
+                        });
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // instructions
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8.0),
+            color: Colors.blue.shade50,
+            child: Text(
+              'Tap anywhere on the canvas below to draw a $selectedEmoji!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.blue.shade700,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
+          
+          // drawing canvas
+          Expanded(
+            child: Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.white,
+                border: Border.all(color: Colors.grey.shade300),
               ),
-              child: DropdownButton<String>(
-                value: selectedEmoji,
-                isExpanded: true,
-                underline: Container(),
-                items: emojiOptions.map((String emoji) {
-                  return DropdownMenuItem<String>(
-                    value: emoji,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Text(emoji),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (String? newValue) {
-                  setState(() {
-                    selectedEmoji = newValue!;
-                  });
-                },
+              child: GestureDetector(
+                onTapUp: _onCanvasTap,
+                child: CustomPaint(
+                  painter: EmojiCanvasPainter(drawnEmojis: drawnEmojis),
+                  size: Size.infinite,
+                ),
               ),
             ),
-            const SizedBox(height: 30),
-            Text(
-              '$selectedEmoji Emoji',
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          
+          // bottom info
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(8.0),
+            color: Colors.grey.shade100,
+            child: Text(
+              'Emojis drawn: ${drawnEmojis.length} | Tap the clear button to reset',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey.shade600,
+              ),
             ),
-            const SizedBox(height: 10),
-            _buildEmojiWidget(selectedEmoji),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class BasicShapesPainter extends CustomPainter {
+class EmojiCanvasPainter extends CustomPainter {
+  final List<DrawnEmoji> drawnEmojis;
+
+  EmojiCanvasPainter({required this.drawnEmojis});
+
   @override
   void paint(Canvas canvas, Size size) {
-    // Determine the center of the canvas
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
-    final squareOffset = Offset(centerX - 80, centerY);
+    for (DrawnEmoji emoji in drawnEmojis) {
+      switch (emoji.type) {
+        case 'Smiley Face':
+          _drawSmileyFace(canvas, emoji.position);
+          break;
+        case 'Heart':
+          _drawHeart(canvas, emoji.position);
+          break;
+        case 'Party Face':
+          _drawPartyFace(canvas, emoji.position);
+          break;
+        case 'Eye':
+          _drawEye(canvas, emoji.position);
+          break;
+      }
+    }
+  }
+
+  void _drawSmileyFace(Canvas canvas, Offset center) {
+
+    final centerX = center.dx;
+    final centerY = center.dy;
     final circleOffset = Offset(centerX, centerY);
     final arcOffset = Offset(centerX + 0, centerY);
-    final rectOffset = Offset(centerX - 160, centerY);
-    final lineStart = Offset(centerX - 200, centerY - 50);
-    final lineEnd = Offset(centerX - 100, centerY + 50);
-    final ovalOffset = Offset(centerX, centerY);
 
     // smiley face, circle
-    final circleRect = Rect.fromCircle(center: circleOffset, radius: 80);
+    final circleRect = Rect.fromCircle(center: circleOffset, radius: 80); 
     final circlePaint = Paint()
       ..shader = RadialGradient(
       colors: [Colors.yellow, Colors.orange],
       center: Alignment.center,
       radius: 0.8,
     ).createShader(circleRect);
-  canvas.drawCircle(circleOffset, 80, circlePaint);
+    canvas.drawCircle(circleOffset, 40, circlePaint);
 
     // smile
     final arcPaint = Paint()
       ..color = Colors.brown.shade800
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 8;
+      ..strokeWidth = 4;
     canvas.drawArc(
-      Rect.fromCenter(center: arcOffset, width: 100, height: 100),
+      Rect.fromCenter(center: arcOffset, width: 50, height: 50),
       .35, // start angle in radians
       2.5, // sweep angle in radians (about 120 degrees)
       false, // whether to use center
       arcPaint,
     );
     
-      // eyes
-     final ovalPaint = Paint()
+    // eyes
+    final ovalPaint = Paint()
       ..color = Colors.brown.shade800
       ..style = PaintingStyle.fill;
     canvas.drawOval(
-  Rect.fromCenter(center: Offset(centerX - 30, centerY - 20), width: 20, height: 30),
-  ovalPaint,
-);
-canvas.drawOval(
-  Rect.fromCenter(center: Offset(centerX + 30, centerY - 20), width: 20, height: 30),
-  ovalPaint,
-);
+      Rect.fromCenter(center: Offset(centerX - 15, centerY - 10), width: 10, height: 15),
+      ovalPaint,
+    );
+    canvas.drawOval(
+      Rect.fromCenter(center: Offset(centerX + 15, centerY - 10), width: 10, height: 15),
+      ovalPaint,
+    );
   }
 
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
-  }
-}
-
-class CombinedShapesPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
-
-    // background gradient
-    final backgroundGradient = RadialGradient(
+  void _drawHeart(Canvas canvas, Offset center) {
+    final centerX = center.dx;
+    final centerY = center.dy;
+    // heart
+    final gradient = RadialGradient(
+      colors: [Colors.pink.shade200, Colors.red],
       center: Alignment.center,
-      radius: 0.8,
-      colors: [Colors.red.shade100, Colors.white],
+      radius: 0.8 
     );
-    canvas.drawRect(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      Paint()..shader = backgroundGradient.createShader(Rect.fromLTWH(0, 0, size.width, size.height)),
-    );
-
-
-  // heart
-  // Gradient
-final gradient = RadialGradient(
-  colors: [Colors.pink.shade200, Colors.red],
-  center: Alignment.center,
-  radius: 0.8 
-);
-final shader = gradient.createShader(Rect.fromCircle(center: Offset(centerX, centerY), radius: 120));
-
-final roofPaint = Paint()
-  ..shader = shader
-  ..style = PaintingStyle.fill;
-final roofPath = Path()
-  ..moveTo(centerX - 100.4, centerY)
-  ..lineTo(centerX + 100.4, centerY)
-  ..lineTo(centerX, centerY + 110)
-  ..close();
-canvas.drawPath(roofPath, roofPaint);
-final heartPaint = Paint()
-  ..shader = shader
-  ..style = PaintingStyle.fill;
-canvas.drawCircle(Offset(centerX + 50, centerY - 39.8), 64.2, heartPaint);
-canvas.drawCircle(Offset(centerX - 50, centerY - 39.8), 64.2, heartPaint);
-
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
-  }
-}
-
-    //party face emoji placeholder
-class PartyFaceShapesPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
-   
-    final placeholderPaint = Paint()
-      ..color = Colors.grey.shade300
+    final shader = gradient.createShader(Rect.fromCircle(center: Offset(centerX, centerY), radius: 60));
+    final roofPaint = Paint()
+      ..shader = shader
       ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(centerX, centerY), 80, placeholderPaint);
+    final roofPath = Path()
+      ..moveTo(centerX - 25, centerY)
+      ..lineTo(centerX + 25, centerY)
+      ..lineTo(centerX, centerY + 30)
+      ..close();
+    canvas.drawPath(roofPath, roofPaint);
+    final heartPaint = Paint()
+      ..shader = shader
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(Offset(centerX + 12.5, centerY - 10), 16, heartPaint);
+    canvas.drawCircle(Offset(centerX - 12.5, centerY - 10), 16, heartPaint);
+  }
+   //placeholder for party face
+  void _drawPartyFace(Canvas canvas, Offset center) {
+
+    final placeholderPaint = Paint()
+      ..color = Colors.purple.shade200
+      ..style = PaintingStyle.fill;
+    canvas.drawCircle(center, 30, placeholderPaint);
     
+
     final textPainter = TextPainter(
       text: const TextSpan(
-        text: 'Party Face\nComing Soon!',
+        text: '🎉',
         style: TextStyle(
-          color: Colors.black,
-          fontSize: 16,
-          fontWeight: FontWeight.bold,
+          fontSize: 20,
         ),
       ),
       textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
     );
     textPainter.layout();
     textPainter.paint(
       canvas,
-      Offset(centerX - textPainter.width / 2, centerY - textPainter.height / 2),
+      Offset(center.dx - textPainter.width / 2, center.dy - textPainter.height / 2),
     );
   }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
-  }
-}
-
-class EyeShapesPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final centerX = size.width / 2;
-    final centerY = size.height / 2;
-  
-   // eye emoji
+   
+   //placeholder for eyes
+  void _drawEye(Canvas canvas, Offset center) {
     
-    // placeholder for code, feel free to delete
+
     final placeholderPaint = Paint()
-      ..color = Colors.grey.shade300
+      ..color = Colors.blue.shade200
       ..style = PaintingStyle.fill;
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(centerX, centerY), width: 120, height: 80),
+      Rect.fromCenter(center: center, width: 50, height: 30),
       placeholderPaint,
     );
+    
+
     final textPainter = TextPainter(
       text: const TextSpan(
-        text: 'Eye\nComing Soon!',
+        text: '👁',
         style: TextStyle(
-          color: Colors.black,
           fontSize: 16,
-          fontWeight: FontWeight.bold,
         ),
       ),
       textDirection: TextDirection.ltr,
-      textAlign: TextAlign.center,
     );
     textPainter.layout();
     textPainter.paint(
       canvas,
-      Offset(centerX - textPainter.width / 2, centerY - textPainter.height / 2),
+      Offset(center.dx - textPainter.width / 2, center.dy - textPainter.height / 2),
     );
   }
-// placeholder end
- 
+// placeholder done
+
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) {
-    return false;
+    return true; 
   }
 }
